@@ -1,65 +1,274 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
-    <meta http-equiv="refresh" content="10">
+    <title>Website Health Status Dashboard</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Health Statuses</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.5.0/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #4361ee;
+            --success-color: #4cc9f0;
+            --warning-color: #f8961e;
+            --danger-color: #f94144;
+            --text-color: #2b2d42;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --border-color: #e9ecef;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
+            font-family: 'Roboto', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
         }
-        h1, h2, h3 {
-            color: #333;
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
         }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .status-card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
         }
-        th, td {
-            padding: 10px;
-            text-align: left;
-            border: 1px solid #ddd;
-        }
+
         th {
-            background-color: #f2f2f2;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 15px;
+            text-align: left;
+            font-weight: 500;
         }
-        tr:nth-child(even) {
-            background-color: #f9f9f9;
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
         }
-        td a {
-            color: #1E90FF;
-            text-decoration: none;
+
+        tr:last-child td {
+            border-bottom: none;
         }
-        td a:hover {
-            text-decoration: underline;
+
+        tr:hover {
+            background-color: rgba(67, 97, 238, 0.05);
+        }
+
+        .status-up {
+            color: var(--success-color);
+            font-weight: 500;
+        }
+
+        .status-down {
+            color: var(--danger-color);
+            font-weight: 500;
+        }
+
+        .status-unknown {
+            color: var(--warning-color);
+            font-weight: 500;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .connection-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-left: 10px;
+        }
+
+        .connected {
+            background-color: rgba(76, 201, 240, 0.2);
+            color: var(--success-color);
+        }
+
+        .disconnected {
+            background-color: rgba(248, 65, 68, 0.2);
+            color: var(--danger-color);
+        }
+
+        .last-updated {
+            text-align: right;
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-    <h1>Health Statuses</h1>
+    <div class="container">
+        <header>
+            <h1>Website Health Status Dashboard <span id="connectionStatus" class="connection-status disconnected">Disconnected</span></h1>
+            <p>Real-time monitoring of website availability and uptime</p>
+        </header>
 
-    <h2>Status: <span th:text="${status}"></span></h2>
+        <div class="last-updated" id="lastUpdated">
+            Last updated: <span id="updateTime">Never</span>
+        </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Website URL</th>
-                <th>Status</th>
-                <th>Time Up</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- Loop through the website status data -->
-            <tr th:each="entry : ${websiteStatusData}">
-                <td th:text="${entry.url}"></td>
-                <td th:text="${entry.status}"></td>
-                <td th:text="${entry.timeUp}"></td>
-            </tr>
-        </tbody>
-    </table>
+        <div class="status-card">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Website URL</th>
+                        <th>Status</th>
+                        <th>Uptime</th>
+                    </tr>
+                </thead>
+                <tbody id="statusContainer">
+                    <tr>
+                        <td colspan="3" style="text-align: center;">Loading status data...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
+        <div class="footer">
+            <p>Monitoring System &copy; 2023 | Auto-refreshing every 5 seconds</p>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        var stompClient = null;
+        var lastUpdateTime = null;
+
+        // Connect to the WebSocket endpoint
+        function connect() {
+            var socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            
+            // Enable debugging
+            stompClient.debug = function(str) {
+                console.log('STOMP: ' + str);
+            };
+            
+            stompClient.connect({}, function (frame) {
+                console.log('Connected: ' + frame);
+                document.getElementById('connectionStatus').textContent = 'Connected';
+                document.getElementById('connectionStatus').className = 'connection-status connected';
+                
+                stompClient.subscribe('/topic/healthStatuses', function (message) {
+                    console.log('Raw message:', message);
+                    console.log('Message body:', message.body);
+                    try {
+                        var data = JSON.parse(message.body);
+                        console.log('Parsed data:', data);
+                        updateHealthStatus(data);
+                        updateLastUpdatedTime();
+                    } catch (e) {
+                        console.error('Error parsing message:', e);
+                    }
+                });
+            }, function (error) {
+                console.error('Connection error:', error);
+                document.getElementById('connectionStatus').textContent = 'Disconnected';
+                document.getElementById('connectionStatus').className = 'connection-status disconnected';
+                // Attempt to reconnect after 5 seconds
+                setTimeout(connect, 5000);
+            });
+        }
+
+        // Function to update health statuses on the UI
+        function updateHealthStatus(data) {
+            try {
+                console.log('Updating UI with:', data);
+                var tbody = document.getElementById("statusContainer");
+                
+                if (data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No status data available</td></tr>';
+                    return;
+                }
+                
+                tbody.innerHTML = ""; // Clear table
+                
+                data.forEach(function(websiteStatus) {
+                    var row = document.createElement("tr");
+                    
+                    var urlCell = document.createElement("td");
+                    urlCell.textContent = websiteStatus.url;
+                    
+                    var statusCell = document.createElement("td");
+                    statusCell.textContent = websiteStatus.status;
+                    
+                    // Add appropriate class based on status
+                    if (websiteStatus.status === 'UP') {
+                        statusCell.className = 'status-up';
+                    } else if (websiteStatus.status === 'DOWN') {
+                        statusCell.className = 'status-down';
+                    } else {
+                        statusCell.className = 'status-unknown';
+                    }
+                    
+                    var timeCell = document.createElement("td");
+                    timeCell.textContent = websiteStatus.timeUp;
+                    
+                    row.appendChild(urlCell);
+                    row.appendChild(statusCell);
+                    row.appendChild(timeCell);
+                    
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('UI update error:', error);
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: var(--danger-color);">Error loading status data</td></tr>';
+            }
+        }
+
+        function updateLastUpdatedTime() {
+            lastUpdateTime = new Date();
+            document.getElementById('updateTime').textContent = lastUpdateTime.toLocaleTimeString();
+        }
+
+        window.onload = function () {
+            connect();  // Connect when the page loads
+            
+            setInterval(function() {
+                fetch('/get_health_statuses')
+                    .then(response => console.log('Status check triggered'))
+                    .catch(err => {
+                        console.error('Error triggering check:', err);
+                        document.getElementById('connectionStatus').textContent = 'Disconnected';
+                        document.getElementById('connectionStatus').className = 'connection-status disconnected';
+                    });
+            }, 5000); // Check every 5 seconds
+        };
+    </script>
 </body>
 </html>

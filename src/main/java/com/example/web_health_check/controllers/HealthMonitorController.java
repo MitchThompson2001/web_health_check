@@ -13,6 +13,7 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.actuate.health.Health;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,33 +27,30 @@ public class HealthMonitorController {
     @Autowired private HealthMonitor healthMonitor;
     @Autowired private HealthMonitorService healthMonitorService;
 
+    @Autowired SimpMessagingTemplate messagingTemplate;
+
     @GetMapping("/get_health_statuses")
     public String getHealthStatuses(Model model) {
         Health health = healthMonitor.health();
-        Map<String, Object> details = health.getDetails();  // Getting health details as Map<String, Object>
-        Map<String, String> timeUp = healthMonitorService.fetchTimeUp(health);  // Fetching time-up data
+        Map<String, Object> details = health.getDetails();
+        Map<String, String> timeUp = healthMonitorService.fetchTimeUp(health);
 
-        // Create a list to hold website status info (URL, Status, Time Up)
         List<Map<String, String>> websiteStatusData = new ArrayList<>();
-
-        // Loop through all the URLs and check the status and time-up information
+        
         details.forEach((url, status) -> {
             String statusStr = status != null ? status.toString() : "N/A";
-            String timeUpStr = timeUp.containsKey(url) ? timeUp.get(url) : "N/A";
-
-            // Create a map for each website's status info
-            Map<String, String> websiteStatus = Map.of(
+            String timeUpStr = timeUp.getOrDefault(url, "N/A");
+            
+            websiteStatusData.add(Map.of(
                 "url", url,
                 "status", statusStr,
                 "timeUp", timeUpStr
-            );
-
-            websiteStatusData.add(websiteStatus);
+            ));
         });
 
-        // Pass the list of website status data to the view
-        model.addAttribute("websiteStatusData", websiteStatusData);
-
+        System.out.println("Sending data: " + websiteStatusData); // Verify data is correct
+        messagingTemplate.convertAndSend("/topic/healthStatuses", websiteStatusData);
+        
         return "healthStatuses";
     }
 }

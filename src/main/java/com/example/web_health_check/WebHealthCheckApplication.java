@@ -12,7 +12,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
-@EnableAsync(proxyTargetClass = true) // Enable asynchronous processing
+@EnableAsync(proxyTargetClass = true)
 public class WebHealthCheckApplication {
 
 	public static void main(String[] args) {
