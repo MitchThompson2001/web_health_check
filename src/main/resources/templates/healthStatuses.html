@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta http-equiv="refresh" content="10">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Statuses</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        td a {
+            color: #1E90FF;
+            text-decoration: none;
+        }
+        td a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Health Statuses</h1>
+
+    <h2>Status: <span th:text="${status}"></span></h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Website URL</th>
+                <th>Status</th>
+                <th>Time Up</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Loop through the website status data -->
+            <tr th:each="entry : ${websiteStatusData}">
+                <td th:text="${entry.url}"></td>
+                <td th:text="${entry.status}"></td>
+                <td th:text="${entry.timeUp}"></td>
+            </tr>
+        </tbody>
+    </table>
+
+</body>
+</html>
