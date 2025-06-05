@@ -1,3 +1,10 @@
+/*
+ * Name: Mitchell Thompson
+ * File: WebConfig.java
+ * Date: 6-5-2025
+ * Project: Web Health Check
+*/
+
 package com.example.web_health_check.configurations;
 
 import org.springframework.context.annotation.Configuration;
