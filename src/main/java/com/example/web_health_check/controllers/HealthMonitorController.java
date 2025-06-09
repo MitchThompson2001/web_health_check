@@ -48,7 +48,6 @@ public class HealthMonitorController {
             ));
         });
 
-        System.out.println("Sending data: " + websiteStatusData); // Verify data is correct
         messagingTemplate.convertAndSend("/topic/healthStatuses", websiteStatusData);
         
         return "healthStatuses";

@@ -181,11 +181,11 @@
                 document.getElementById('connectionStatus').className = 'connection-status connected';
                 
                 stompClient.subscribe('/topic/healthStatuses', function (message) {
-                    console.log('Raw message:', message);
-                    console.log('Message body:', message.body);
+                    // console.log('Raw message:', message);
+                    // console.log('Message body:', message.body);
                     try {
                         var data = JSON.parse(message.body);
-                        console.log('Parsed data:', data);
+                        // console.log('Parsed data:', data);
                         updateHealthStatus(data);
                         updateLastUpdatedTime();
                     } catch (e) {
@@ -204,7 +204,7 @@
         // Function to update health statuses on the UI
         function updateHealthStatus(data) {
             try {
-                console.log('Updating UI with:', data);
+                // console.log('Updating UI with:', data);
                 var tbody = document.getElementById("statusContainer");
                 
                 if (data.length === 0) {
